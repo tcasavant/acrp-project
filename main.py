@@ -23,17 +23,17 @@ if (show_image_enable or draw_circle_enable) and "DISPLAY" not in os.environ:
     draw_circle_enable  = False
 
 kernel = np.ones((5,5),np.uint8)
-img = cv2.VideoCapture(-1)
+cam = cv2.VideoCapture(-1)
 
-if not img.isOpened:
+if not cam.isOpened:
     print("not open")
 else:
     print("open")
 
 SCREEN_WIDTH = 160
 SCREEN_HIGHT = 120
-img.set(3,SCREEN_WIDTH)
-img.set(4,SCREEN_HIGHT)
+cam.set(3,SCREEN_WIDTH)
+cam.set(4,SCREEN_HIGHT)
 CENTER_X = SCREEN_WIDTH/2
 CENTER_Y = SCREEN_HIGHT/2
 BALL_SIZE_MIN = SCREEN_HIGHT/10
@@ -90,15 +90,18 @@ def nothing(x):
 
 def main():
     # test()
+
     # drive_loop()
-    straight_time = 4
-    move_straight(straight_time)
-    turn_90("left")
-    move_straight(straight_time)
-    turn_90("right")
+
+    # straight_time = 4
+    # move_straight(straight_time)
+    # turn_90("left")
+    # move_straight(straight_time)
+    # turn_90("right")
 
 
 
+    #### Original code
     # pan_angle = 90              # initial angle for pan
     # tilt_angle = 90             # initial angle for tilt
     # fw_angle = 90
@@ -204,7 +207,7 @@ def main():
 
 def destroy():
     bw.stop()
-    img.release()
+    cam.release()
 
 def test():
     front_wheels_test()
@@ -311,8 +314,8 @@ def move_straight(t):
 def find_blob() :
     radius = 0
     # Load input image
-    #_, bgr_image = img.read()
-    ret, bgr_image = img.read()
+    #_, bgr_image = cam.read()
+    ret, bgr_image = cam.read()
     if ret == False:
         print("Failed to read image")
 
