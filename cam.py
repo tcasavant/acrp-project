@@ -6,6 +6,7 @@ cam = cv2.VideoCapture(0)
 # Capture image every second
 while True:
     ret, image = cam.read()
+
     cv2.imshow('Imagetest',image)
     cv2.imwrite('/home/tsc06/acrp-project/images/testimage.jpg', image)
 

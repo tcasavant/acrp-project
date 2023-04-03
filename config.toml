@@ -1,0 +1,9 @@
+# Length and width dimension of image taken by camera in inches
+[image]
+dimension = 7
+
+
+# Runway dimensions in feet
+[runway]
+length = 100
+width = 100

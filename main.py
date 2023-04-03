@@ -7,8 +7,30 @@ import cv2
 import numpy as np
 import picar
 import os
+import toml
+from datetime import datetime
+
+config = toml.load('config.toml')
 
 picar.setup()
+
+# Create rubber values array and images array from runway dimensions in terms of image size
+num_imgs_length = (config[runway][length] * 12) // config[image][dimension]
+num_imgs_width = (config[runway][width] * 12) // config[image][dimension]
+vals_arr = [[-1] * num_imgs_length for i in range(num_imgs_width)]
+imgs_arr = [[-1] * num_imgs_length for i in range(num_imgs_width)]
+
+# Create new directory for images to be saved to named the current date and time
+cwd = os.getcwd()
+img_dir = os.path.join(cwd, "images")
+
+start_img_dir = os.path.join(img_dir, "start")
+
+dt_string = datetime.now().strftime("%Y-%m-%d_%H-%M")
+new_img_dir = os.path.join(img_dir, "dt_string")
+os.mkdir(new_img_dir)
+
+
 # Show image captured by camera, True to turn on, you will need #DISPLAY and it also slows the speed of tracking
 show_image_enable   = False
 draw_circle_enable  = False
@@ -89,7 +111,7 @@ def nothing(x):
     pass
 
 def main():
-    # test()
+    test()
 
     # drive_loop()
 
@@ -99,6 +121,18 @@ def main():
     # move_straight(straight_time)
     # turn_90("right")
 
+    for i in range(len(vals_arr)):
+        for j in range(len(vals_arr[i])):
+            blank = cv2.imread('grey.png')
+            runway = cv2.imread('tracks.png')
+
+            subtracted = cv2.subtract(blank,runway)
+            sub_not = cv2.bitwise_not(subtracted)
+
+            imgs_arr[i][j] = sub_not
+            img_name = f"w{i}_l{j}.jpg"
+            img_path = os.path.join(new_img_dir, img_name)
+            cv2.imwrite(img_path, sub_not)
 
 
     #### Original code
@@ -205,6 +239,7 @@ def main():
     #     else:
     #         bw.stop()
 
+
 def destroy():
     bw.stop()
     cam.release()
@@ -309,8 +344,6 @@ def move_straight(t):
     time.sleep(0.5)
 
 
-
-
 def find_blob() :
     radius = 0
     # Load input image
@@ -374,7 +407,6 @@ def find_blob() :
         return center, radius
     else:
         return (0, 0), 0
-
 
 if __name__ == '__main__':
     try:
