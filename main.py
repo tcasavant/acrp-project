@@ -3,7 +3,7 @@ from picar.SunFounder_PCA9685 import Servo
 import picar
 import time
 from time import sleep
-import cv2
+from cv2 import cv2
 import numpy as np
 import picar
 import os
@@ -15,8 +15,8 @@ config = toml.load('config.toml')
 picar.setup()
 
 # Create rubber values array and images array from runway dimensions in terms of image size
-num_imgs_length = (config[runway][length] * 12) // config[image][dimension]
-num_imgs_width = (config[runway][width] * 12) // config[image][dimension]
+num_imgs_length = (config['runway']['length'] * 12) // config['image']['dimension']
+num_imgs_width = (config['runway']['width'] * 12) // config['image']['dimension']
 vals_arr = [[-1] * num_imgs_length for i in range(num_imgs_width)]
 imgs_arr = [[-1] * num_imgs_length for i in range(num_imgs_width)]
 
@@ -123,16 +123,22 @@ def main():
 
     for i in range(len(vals_arr)):
         for j in range(len(vals_arr[i])):
-            blank = cv2.imread('grey.png')
-            runway = cv2.imread('tracks.png')
+            start = cv2.imread('grey.png')
 
-            subtracted = cv2.subtract(blank,runway)
-            sub_not = cv2.bitwise_not(subtracted)
-
-            imgs_arr[i][j] = sub_not
+            current = cv2.imread('tracks.png')
             img_name = f"w{i}_l{j}.jpg"
             img_path = os.path.join(new_img_dir, img_name)
-            cv2.imwrite(img_path, sub_not)
+            cv2.imwrite(img_path, current)
+
+            subtracted = cv2.subtract(start,current)
+            subtracted = cv2.bitwise_not(subtracted)
+            grayscale = cv2.cvtColor(subtracted, cv2.COLOR_BGR2GRAY)
+
+            imgs_arr[i][j] = grayscale
+            vals_arr[i][j] = cv2.mean(grayscale)[0]
+
+
+
 
 
     #### Original code
@@ -238,6 +244,7 @@ def main():
     #                 bw.forward()
     #     else:
     #         bw.stop()
+
 
 
 def destroy():
