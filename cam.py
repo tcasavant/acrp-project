@@ -2,7 +2,7 @@ import cv2
 import time
 
 cam = cv2.VideoCapture(0)
-
+t
 # Capture image every second
 while True:
     ret, image = cam.read()

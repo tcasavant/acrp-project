@@ -3,20 +3,30 @@ from picar.SunFounder_PCA9685 import Servo
 import picar
 import time
 from time import sleep
-from cv2 import cv2
+import cv2
 import numpy as np
 import picar
 import os
 import toml
 from datetime import datetime
+import shutil
 
-config = toml.load('config.toml')
 
 picar.setup()
 
+# Get configuration values
+config = toml.load('config.toml')
+
+img_dimension = config['image']['dimension']
+runway_length = config['runway']['length']
+runway_width = config['runway']['width']
+if(config['runway']['units'] == 'feet'):
+    runway_length *= 12
+    runway_width *= 12
+
 # Create rubber values array and images array from runway dimensions in terms of image size
-num_imgs_length = (config['runway']['length'] * 12) // config['image']['dimension']
-num_imgs_width = (config['runway']['width'] * 12) // config['image']['dimension']
+num_imgs_length = (runway_length) // img_dimension
+num_imgs_width = (runway_width) // img_dimension
 vals_arr = [[-1] * num_imgs_length for i in range(num_imgs_width)]
 imgs_arr = [[-1] * num_imgs_length for i in range(num_imgs_width)]
 
@@ -27,7 +37,7 @@ img_dir = os.path.join(cwd, "images")
 start_img_dir = os.path.join(img_dir, "start")
 
 dt_string = datetime.now().strftime("%Y-%m-%d_%H-%M")
-new_img_dir = os.path.join(img_dir, "dt_string")
+new_img_dir = os.path.join(img_dir, dt_string)
 os.mkdir(new_img_dir)
 
 
@@ -111,7 +121,7 @@ def nothing(x):
     pass
 
 def main():
-    test()
+    # test()
 
     # drive_loop()
 
@@ -121,12 +131,20 @@ def main():
     # move_straight(straight_time)
     # turn_90("right")
 
+    print("running")
     for i in range(len(vals_arr)):
-        for j in range(len(vals_arr[i])):
-            start = cv2.imread('grey.png')
+        print(f"Writing images to {new_img_dir}")
+        print(f"Taking images of column {i+1} of {num_imgs_width}")
 
-            current = cv2.imread('tracks.png')
-            img_name = f"w{i}_l{j}.jpg"
+        for j in range(len(vals_arr[i])):
+            start_img_path = os.path.join(start_img_dir, f"w{i+1}_l{j+1}.jpg")
+            start = cv2.imread(start_img_path)
+
+            # TEMPORARY
+            current_path = os.path.join(img_dir, "end.jpg")
+            current = cv2.imread(current_path)
+
+            img_name = f"w{i+1}_l{j+1}.jpg"
             img_path = os.path.join(new_img_dir, img_name)
             cv2.imwrite(img_path, current)
 
@@ -135,8 +153,12 @@ def main():
             grayscale = cv2.cvtColor(subtracted, cv2.COLOR_BGR2GRAY)
 
             imgs_arr[i][j] = grayscale
-            vals_arr[i][j] = cv2.mean(grayscale)[0]
 
+            mean_val = cv2.mean(grayscale)[0]
+            vals_arr[i][j] = mean_val
+            print(f"\tImage {j+1} of {num_imgs_length} in column -> {mean_val}")
+        print(f"Finished column {i+1}\n")
+    print(f"Finished analysis\n")
 
 
 
@@ -350,6 +372,51 @@ def move_straight(t):
     bw.stop()
     time.sleep(0.5)
 
+def setup_start_imgs():
+
+    # Create new directory for images to be saved to named the current date and time
+    cwd = os.getcwd()
+    img_dir = os.path.join(cwd, "images")
+
+    start_img_dir = os.path.join(img_dir, "start")
+
+    if os.path.isdir(start_img_dir):
+        print(f"Do you want to empty the directory {start_img_dir} (y/n): ")
+        value = input()
+        while value != 'y' and value != 'n':
+            print("Please enter y or n: ")
+            value = input()
+
+        if value == 'n':
+            return False
+
+        shutil.rmtree(start_img_dir)
+
+    elif os.path.isfile(start_img_dir):
+        print(f"Do you want to delete the file {start_img_dir} (y/n): ")
+        value = input()
+        while value != 'y' and value != 'n':
+            print("Please enter y or n: ")
+            value = input()
+
+        if value == 'n':
+            return False
+
+        os.remove('file_path')
+
+    print(f"Making directory {start_img_dir}")
+    os.mkdir(start_img_dir)
+
+    print(f"Writing images to {start_img_dir}")
+
+    start_img = os.path.join(img_dir, "start.jpg")
+    start_img = cv2.imread(start_img)
+
+
+    for i in range(num_imgs_width):
+        for j in range(num_imgs_length):
+            start_img_path = os.path.join(start_img_dir, f"w{i+1}_l{j+1}.jpg")
+            cv2.imwrite(start_img_path, start_img)
 
 def find_blob() :
     radius = 0

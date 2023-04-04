@@ -5,5 +5,7 @@ dimension = 7
 
 # Runway dimensions in feet
 [runway]
-length = 100
-width = 100
+length = 40
+width = 32
+# Valid unit values are "inches" and "feet"
+units = "inches"
