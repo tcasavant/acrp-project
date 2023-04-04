@@ -10,9 +10,14 @@ import os
 import toml
 from datetime import datetime
 import shutil
+import board
+import neopixel
 
 
 picar.setup()
+pixels = neopixel.NeoPixel(
+    board.D12, 15, brightness=0.2, auto_write=False, pixel_order=neopixel.GRB
+)
 
 # Get configuration values
 config = toml.load('config.toml')
@@ -53,27 +58,27 @@ rear_wheels_enable  = True
 front_wheels_enable = True
 pan_tilt_enable     = True
 
-if (show_image_enable or draw_circle_enable) and "DISPLAY" not in os.environ:
-    print('Warning: Display not found, turn off "show_image_enable" and "draw_circle_enable"')
-    show_image_enable   = False
-    draw_circle_enable  = False
+# if (show_image_enable or draw_circle_enable) and "DISPLAY" not in os.environ:
+#     print('Warning: Display not found, turn off "show_image_enable" and "draw_circle_enable"')
+#     show_image_enable   = False
+#     draw_circle_enable  = False
 
 kernel = np.ones((5,5),np.uint8)
 cam = cv2.VideoCapture(0)
 
-if not cam.isOpened:
-    print("not open")
-else:
-    print("open")
+# if not cam.isOpened:
+#     print("not open")
+# else:
+#     print("open")
 
-SCREEN_WIDTH = 160
-SCREEN_HIGHT = 120
-cam.set(3,SCREEN_WIDTH)
-cam.set(4,SCREEN_HIGHT)
-CENTER_X = SCREEN_WIDTH/2
-CENTER_Y = SCREEN_HIGHT/2
-BALL_SIZE_MIN = SCREEN_HIGHT/10
-BALL_SIZE_MAX = SCREEN_HIGHT/3
+# SCREEN_WIDTH = 160
+# SCREEN_HIGHT = 120
+# cam.set(3,SCREEN_WIDTH)
+# cam.set(4,SCREEN_HIGHT)
+# CENTER_X = SCREEN_WIDTH/2
+# CENTER_Y = SCREEN_HIGHT/2
+# BALL_SIZE_MIN = SCREEN_HIGHT/10
+# BALL_SIZE_MAX = SCREEN_HIGHT/3
 
 # Filter setting, DONOT CHANGE
 hmn = 12
@@ -128,6 +133,15 @@ def main():
 
     print("Program starting")
 
+    print("Ready to begin analysis?")
+    value = input()
+    while value != 'y':
+        print("Ready to begin analysis?")
+        value = input()
+
+    turn_on_leds()
+    print("LEDS on")
+
     # Make new directory for current images
     os.mkdir(new_img_dir)
     print(f"Writing images to {new_img_dir}")
@@ -156,6 +170,9 @@ def main():
 
             # Take image of current state of runway at current point and save it to file
             ret, current = cam.read()
+            if not ret:
+                print("Picture failed, program ending")
+                return
 
             img_name = f"w{col}_l{row}.jpg"
             img_path = os.path.join(new_img_dir, img_name)
@@ -174,20 +191,23 @@ def main():
             vals_arr[col-1][row-1] = mean_val
 
             # If gray value is less than acceptable level, add to counter
+            # Higher numbers mean less black in image, therefore less difference from clean runway
             if mean_val < friction_threshold:
                 low_friction_ctr += 1
 
-            print(f"\tImage {row} of {num_imgs_length} in column -> {mean_val}")
+            print(f"\tImage {j+1} of {num_imgs_length} in column -> {mean_val}")
 
             # Move forward to next point if not at end of runway
-            if j != (len(vals_arr[]) - 1):
-                move_straight(1)
+            if j != (len(vals_arr[i]) - 1):
+                move_straight(0.9)
+
         print(f"Finished column {col}\n")
-        print("Please move robot to next column and enter y when ready: ")
-        value = input()
-        while value != 'y':
-            print("Please enter y when ready: ")
+        if i != (len(vals_arr) - 1):
+            print("Please move robot to next column and enter y when ready: ")
             value = input()
+            while value != 'y':
+                print("Please enter y when ready: ")
+                value = input()
     print(f"Finished taking images\n")
 
 
@@ -198,10 +218,10 @@ def main():
 
     img_area = img_dimension * img_dimension
 
-    low_friction_area = img_area * low_friction_counter
+    low_friction_area = img_area * low_friction_ctr
     low_friction_percentage = low_friction_area / runway_area
 
-    print(f"{low_friction_perecentage * 100}% of the runway is above the acceptable rubber deposit limit.")
+    print(f"{low_friction_percentage * 100}% of the runway is above the acceptable rubber deposit limit.")
     print(f"This is above the set threshold of {max_low_friction * 100}%.")
     print(f"It is recommended to use a friction measuring device to confirm these readings and consider cleaning the runway.")
 
@@ -465,69 +485,83 @@ def setup_start_imgs():
             start_img_path = os.path.join(start_img_dir, f"w{i+1}_l{j+1}.jpg")
             cv2.imwrite(start_img_path, start_img)
 
-def find_blob() :
-    radius = 0
-    # Load input image
-    #_, bgr_image = cam.read()
-    ret, bgr_image = cam.read()
-    if ret == False:
-        print("Failed to read image")
 
-    orig_image = bgr_image
+def turn_on_leds():
+    for i in range(500):
+        if i % 10 == 0:
+            print(f"iteration {i}")
+        pixels.fill((255, 255, 255))
+        pixels.show()
+        time.sleep(0.001)
 
-    bgr_image = cv2.medianBlur(bgr_image, 3)
+    print("iterations done")
+    pixels.fill((255, 255, 255))
+    pixels.show()
 
-    # Convert input image to HSV
-    hsv_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2HSV)
 
-    # Threshold the HSV image, keep only the red pixels
-    lower_red_hue_range = cv2.inRange(hsv_image, (0, 100, 100), (10, 255, 255))
-    upper_red_hue_range = cv2.inRange(hsv_image, (160, 100, 100), (179, 255, 255))
-    # Combine the above two images
-    red_hue_image = cv2.addWeighted(lower_red_hue_range, 1.0, upper_red_hue_range, 1.0, 0.0)
+# def find_ blob() :
+    # radius = 0
+    # # Load input image
+    # #_, bgr_image = cam.read()
+    # ret, bgr_image = cam.read()
+    # if ret == False:
+    #     print("Failed to read image")
 
-    red_hue_image = cv2.GaussianBlur(red_hue_image, (9, 9), 2, 2)
+    # orig_image = bgr_image
 
-    # Use the Hough transform to detect circles in the combined threshold image
-    circles = cv2.HoughCircles(red_hue_image, cv2.HOUGH_GRADIENT, 1, 120, 100, 20, 10, 0)
+    # bgr_image = cv2.medianBlur(bgr_image, 3)
 
-    if circles is not None:
-        circles = np.uint16(np.around(circles))
+    # # Convert input image to HSV
+    # hsv_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2HSV)
 
-    # Loop over all detected circles and outline them on the original image
-        all_r = np.array([])
-    # print("circles: %s"%circles)
-        try:
-            for i in circles[0,:]:
-                # print("i: %s"%i)
-                all_r = np.append(all_r, int(round(i[2])))
-            closest_ball = all_r.argmax()
-            center=(int(round(circles[0][closest_ball][0])), int(round(circles[0][closest_ball][1])))
-            radius=int(round(circles[0][closest_ball][2]))
-            if draw_circle_enable:
-                cv2.circle(orig_image, center, radius, (0, 255, 0), 5)
-        except IndexError:
-            pass
-            #print("circles: %s"%circles)
+    # # Threshold the HSV image, keep only the red pixels
+    # lower_red_hue_range = cv2.inRange(hsv_image, (0, 100, 100), (10, 255, 255))
+    # upper_red_hue_range = cv2.inRange(hsv_image, (160, 100, 100), (179, 255, 255))
+    # # Combine the above two images
+    # red_hue_image = cv2.addWeighted(lower_red_hue_range, 1.0, upper_red_hue_range, 1.0, 0.0)
 
-    # Show images
-    if show_image_enable:
-        cv2.namedWindow("Threshold lower image", cv2.WINDOW_AUTOSIZE)
-        cv2.imshow("Threshold lower image", lower_red_hue_range)
-        cv2.namedWindow("Threshold upper image", cv2.WINDOW_AUTOSIZE)
-        cv2.imshow("Threshold upper image", upper_red_hue_range)
-        cv2.namedWindow("Combined threshold images", cv2.WINDOW_AUTOSIZE)
-        cv2.imshow("Combined threshold images", red_hue_image)
-        cv2.namedWindow("Detected red circles on the input image", cv2.WINDOW_AUTOSIZE)
-        cv2.imshow("Detected red circles on the input image", orig_image)
+    # red_hue_image = cv2.GaussianBlur(red_hue_image, (9, 9), 2, 2)
 
-    k = cv2.waitKey(5) & 0xFF
-    if k == 27:
-        return (0, 0), 0
-    if radius > 3:
-        return center, radius
-    else:
-        return (0, 0), 0
+    # # Use the Hough transform to detect circles in the combined threshold image
+    # circles = cv2.HoughCircles(red_hue_image, cv2.HOUGH_GRADIENT, 1, 120, 100, 20, 10, 0)
+
+    # if circles is not None:
+    #     circles = np.uint16(np.around(circles))
+
+    # # Loop over all detected circles and outline them on the original image
+    #     all_r = np.array([])
+    # # print("circles: %s"%circles)
+    #     try:
+    #         for i in circles[0,:]:
+    #             # print("i: %s"%i)
+    #             all_r = np.append(all_r, int(round(i[2])))
+    #         closest_ball = all_r.argmax()
+    #         center=(int(round(circles[0][closest_ball][0])), int(round(circles[0][closest_ball][1])))
+    #         radius=int(round(circles[0][closest_ball][2]))
+    #         if draw_circle_enable:
+    #             cv2.circle(orig_image, center, radius, (0, 255, 0), 5)
+    #     except IndexError:
+    #         pass
+    #         #print("circles: %s"%circles)
+
+    # # Show images
+    # if show_image_enable:
+    #     cv2.namedWindow("Threshold lower image", cv2.WINDOW_AUTOSIZE)
+    #     cv2.imshow("Threshold lower image", lower_red_hue_range)
+    #     cv2.namedWindow("Threshold upper image", cv2.WINDOW_AUTOSIZE)
+    #     cv2.imshow("Threshold upper image", upper_red_hue_range)
+    #     cv2.namedWindow("Combined threshold images", cv2.WINDOW_AUTOSIZE)
+    #     cv2.imshow("Combined threshold images", red_hue_image)
+    #     cv2.namedWindow("Detected red circles on the input image", cv2.WINDOW_AUTOSIZE)
+    #     cv2.imshow("Detected red circles on the input image", orig_image)
+
+    # k = cv2.waitKey(5) & 0xFF
+    # if k == 27:
+    #     return (0, 0), 0
+    # if radius > 3:
+    #     return center, radius
+    # else:
+    #     return (0, 0), 0
 
 if __name__ == '__main__':
     try:
