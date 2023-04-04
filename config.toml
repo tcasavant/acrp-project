@@ -1,6 +1,7 @@
 # Length and width dimension of image taken by camera in inches
 [image]
-dimension = 7
+dimension = 6
+threshold = 150
 
 
 # Runway dimensions in feet
@@ -9,3 +10,5 @@ length = 40
 width = 32
 # Valid unit values are "inches" and "feet"
 units = "inches"
+# Percentage of runway with friction too low
+percent = 0.05

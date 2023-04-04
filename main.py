@@ -18,11 +18,16 @@ picar.setup()
 config = toml.load('config.toml')
 
 img_dimension = config['image']['dimension']
+friction_threshold = config['image']['threshold']
+max_low_friction = config['runway']['percent']
+
 runway_length = config['runway']['length']
 runway_width = config['runway']['width']
-if(config['runway']['units'] == 'feet'):
-    runway_length *= 12
-    runway_width *= 12
+runway_units = config['runway']['units']
+if(runway_units == 'feet'):
+    runway_length /= 12
+    runway_width /= 12
+
 
 # Create rubber values array and images array from runway dimensions in terms of image size
 num_imgs_length = (runway_length) // img_dimension
@@ -38,7 +43,6 @@ start_img_dir = os.path.join(img_dir, "start")
 
 dt_string = datetime.now().strftime("%Y-%m-%d_%H-%M")
 new_img_dir = os.path.join(img_dir, dt_string)
-os.mkdir(new_img_dir)
 
 
 # Show image captured by camera, True to turn on, you will need #DISPLAY and it also slows the speed of tracking
@@ -55,7 +59,7 @@ if (show_image_enable or draw_circle_enable) and "DISPLAY" not in os.environ:
     draw_circle_enable  = False
 
 kernel = np.ones((5,5),np.uint8)
-cam = cv2.VideoCapture(-1)
+cam = cv2.VideoCapture(0)
 
 if not cam.isOpened:
     print("not open")
@@ -121,44 +125,87 @@ def nothing(x):
     pass
 
 def main():
-    # test()
 
-    # drive_loop()
+    print("Program starting")
 
-    # straight_time = 4
-    # move_straight(straight_time)
-    # turn_90("left")
-    # move_straight(straight_time)
-    # turn_90("right")
+    # Make new directory for current images
+    os.mkdir(new_img_dir)
+    print(f"Writing images to {new_img_dir}")
 
-    print("running")
+    low_friction_ctr = 0
+
+    # Gather images and analyze the grayscale values of each
     for i in range(len(vals_arr)):
-        print(f"Writing images to {new_img_dir}")
         print(f"Taking images of column {i+1} of {num_imgs_width}")
+        col = i + 1
 
         for j in range(len(vals_arr[i])):
-            start_img_path = os.path.join(start_img_dir, f"w{i+1}_l{j+1}.jpg")
+            # Account for serpentine pattern in row number
+            if i % 2 == 1:
+                row = num_imgs_length - j
+            else:
+                row = j + 1
+
+            # Get image of clean runway at current point
+            start_img_path = os.path.join(start_img_dir, f"w{col}_l{row}.jpg")
             start = cv2.imread(start_img_path)
 
-            # TEMPORARY
-            current_path = os.path.join(img_dir, "end.jpg")
-            current = cv2.imread(current_path)
+            # TEMPORARY - should take image
+            # current_path = os.path.join(img_dir, "current.jpg")
+            # current = cv2.imread(current_path)
 
-            img_name = f"w{i+1}_l{j+1}.jpg"
+            # Take image of current state of runway at current point and save it to file
+            ret, current = cam.read()
+
+            img_name = f"w{col}_l{row}.jpg"
             img_path = os.path.join(new_img_dir, img_name)
             cv2.imwrite(img_path, current)
 
+            # Subtract current image from start image, invert, and convert to grayscale (single value per pixel)
             subtracted = cv2.subtract(start,current)
             subtracted = cv2.bitwise_not(subtracted)
             grayscale = cv2.cvtColor(subtracted, cv2.COLOR_BGR2GRAY)
 
-            imgs_arr[i][j] = grayscale
+            # Save image to array to current point
+            imgs_arr[col - 1][row - 1] = grayscale
 
+            # Calculate average gray value of picture and save to values array at current point
             mean_val = cv2.mean(grayscale)[0]
-            vals_arr[i][j] = mean_val
-            print(f"\tImage {j+1} of {num_imgs_length} in column -> {mean_val}")
-        print(f"Finished column {i+1}\n")
-    print(f"Finished analysis\n")
+            vals_arr[col-1][row-1] = mean_val
+
+            # If gray value is less than acceptable level, add to counter
+            if mean_val < friction_threshold:
+                low_friction_ctr += 1
+
+            print(f"\tImage {row} of {num_imgs_length} in column -> {mean_val}")
+
+            # Move forward to next point if not at end of runway
+            if j != (len(vals_arr[]) - 1):
+                move_straight(1)
+        print(f"Finished column {col}\n")
+        print("Please move robot to next column and enter y when ready: ")
+        value = input()
+        while value != 'y':
+            print("Please enter y when ready: ")
+            value = input()
+    print(f"Finished taking images\n")
+
+
+    # Analyze images
+    runway_area = runway_length * runway_width
+    if runway_units == 'feet':
+        runway_area *= 144
+
+    img_area = img_dimension * img_dimension
+
+    low_friction_area = img_area * low_friction_counter
+    low_friction_percentage = low_friction_area / runway_area
+
+    print(f"{low_friction_perecentage * 100}% of the runway is above the acceptable rubber deposit limit.")
+    print(f"This is above the set threshold of {max_low_friction * 100}%.")
+    print(f"It is recommended to use a friction measuring device to confirm these readings and consider cleaning the runway.")
+
+
 
 
 
@@ -358,7 +405,7 @@ def turn_90(dir):
         print("Not a valid direction")
         return
     time.sleep(0.5)
-    bw.backward()
+    bw.forward()
     bw.speed = bw_default_speed
     time.sleep(3.4)
     bw.stop()
@@ -366,7 +413,7 @@ def turn_90(dir):
     time.sleep(0.5)
 
 def move_straight(t):
-    bw.backward()
+    bw.forward()
     bw.speed = bw_default_speed
     time.sleep(t)
     bw.stop()
