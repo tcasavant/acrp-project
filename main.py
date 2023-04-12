@@ -222,8 +222,12 @@ def main():
     low_friction_percentage = low_friction_area / runway_area
 
     print(f"{low_friction_percentage * 100}% of the runway is above the acceptable rubber deposit limit.")
-    print(f"This is above the set threshold of {max_low_friction * 100}%.")
-    print(f"It is recommended to use a friction measuring device to confirm these readings and consider cleaning the runway.")
+    if low_friction_percentage >= max_low_friction:
+        print(f"This is above the set threshold of {max_low_friction * 100}%.")
+        print(f"It is recommended to use a friction measuring device to confirm these readings and consider cleaning the runway.")
+    else:
+        print(f"This is below the set threshold of {max_low_friction * 100}%.")
+        print(f"The runway has an acceptable level of friction")
 
 
 
